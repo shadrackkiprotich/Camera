@@ -16,7 +16,7 @@ namespace Camera
 
         private CameraManager()
         {
-            _cameraManagerImplementation = DependencyService.Resolve<ICameraManager>();
+            _cameraManagerImplementation = DependencyService.Get<ICameraManager>();
         }
 
         /// <summary>

@@ -1,3 +1,4 @@
+using System;
 using Android.Content;
 using Android.Hardware.Camera2;
 using Camera.Internals;
@@ -37,7 +38,7 @@ namespace Camera.Droid
                 if (facing != null && facing == lensFacing) return cameraId;
             }
 
-            throw new UnsupportedOperationException(GetUnsupportedCameraMessage(camera));
+            throw new NotSupportedException(GetUnsupportedCameraMessage(camera));
         }
 
         private static Integer ToLensFacing(LogicalCameras camera)
@@ -49,7 +50,7 @@ namespace Camera.Droid
                 case LogicalCameras.Rear:
                     return Integer.ValueOf((int) LensFacing.Back);
                 default:
-                    throw new UnsupportedOperationException(GetUnsupportedCameraMessage(camera));
+                    throw new NotSupportedException(GetUnsupportedCameraMessage(camera));
             }
         }
 
@@ -63,7 +64,7 @@ namespace Camera.Droid
             var cameraManager = (Android.Hardware.Camera2.CameraManager)
                 _context.GetSystemService(Context.CameraService);
             if (cameraManager == null)
-                throw new UnsupportedOperationException("This device does not support the camera2 API.");
+                throw new NotSupportedException("This device does not support the camera2 API.");
 
             return cameraManager;
         }

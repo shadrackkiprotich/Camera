@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using Android.Hardware.Camera2;
-using Android.OS;
 using Java.Lang;
 using Java.Util.Concurrent;
 
@@ -9,11 +8,10 @@ namespace Camera.Droid
 {
     public class Camera : ICamera
     {
+        private readonly CameraBackgroundThread _backgroundThread = new CameraBackgroundThread();
         private readonly string _cameraId;
         private readonly Semaphore _cameraOpenCloseLock = new Semaphore(1);
         private readonly Android.Hardware.Camera2.CameraManager _manager;
-        private Handler _backgroundHandler;
-        private HandlerThread _backgroundThread;
         private CameraDevice _cameraDevice;
         private CameraStateCallback _stateCallback;
 
@@ -27,11 +25,11 @@ namespace Camera.Droid
 
         public void Open()
         {
-            StartBackgroundThread();
+            _backgroundThread.Start();
             _stateCallback = new CameraStateCallback();
             _stateCallback.Opened += OnOpened;
             LockCameraOpening();
-            _manager.OpenCamera(_cameraId, _stateCallback, _backgroundHandler);
+            _manager.OpenCamera(_cameraId, _stateCallback, _backgroundThread.Handler);
         }
 
         public void Close()
@@ -40,7 +38,7 @@ namespace Camera.Droid
             {
                 _cameraOpenCloseLock.Acquire();
                 _cameraDevice?.Close();
-                StopBackgroundThread();
+                _backgroundThread.Stop();
             }
             catch (InterruptedException e)
             {
@@ -69,30 +67,6 @@ namespace Camera.Droid
         {
             _cameraDevice = device;
             if (_stateCallback != null) _stateCallback.Opened -= OnOpened;
-        }
-
-        // Starts a background thread and its {@link Handler}.
-        private void StartBackgroundThread()
-        {
-            _backgroundThread = new HandlerThread("CameraBackground");
-            _backgroundThread.Start();
-            _backgroundHandler = new Handler(_backgroundThread.Looper);
-        }
-
-        // Stops the background thread and its {@link Handler}.
-        private void StopBackgroundThread()
-        {
-            _backgroundThread.QuitSafely();
-            try
-            {
-                _backgroundThread.Join();
-                _backgroundThread = null;
-                _backgroundHandler = null;
-            }
-            catch (InterruptedException e)
-            {
-                e.PrintStackTrace();
-            }
         }
     }
 }

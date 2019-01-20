@@ -7,7 +7,6 @@ namespace Camera.iOS
     {
         public static void Init()
         {
-            DependencyService.Register<ICamera, Camera>();
             DependencyService.Register<ICameraManager, CameraManager>();
         }
     }

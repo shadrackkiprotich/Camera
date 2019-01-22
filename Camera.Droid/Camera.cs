@@ -1,5 +1,5 @@
 using System;
-using System.IO;
+using System.Threading.Tasks;
 using Android.Hardware.Camera2;
 using Java.Lang;
 using Java.Util.Concurrent;
@@ -12,6 +12,7 @@ namespace Camera.Droid
         private readonly string _cameraId;
         private readonly Semaphore _cameraOpenCloseLock = new Semaphore(1);
         private readonly Android.Hardware.Camera2.CameraManager _manager;
+        private AsyncAutoResetEvent _asyncAutoResetEvent;
         private CameraDevice _cameraDevice;
         private CameraStateCallback _stateCallback;
 
@@ -21,15 +22,17 @@ namespace Camera.Droid
             _cameraId = cameraId;
         }
 
-        public event EventHandler<Stream> PreviewFrameAvailable;
+        public IPreview Preview { get; private set; }
 
-        public void Open()
+        public async Task OpenAsync()
         {
             _backgroundThread.Start();
             _stateCallback = new CameraStateCallback();
             _stateCallback.Opened += OnOpened;
             LockCameraOpening();
+            _asyncAutoResetEvent = new AsyncAutoResetEvent(false);
             _manager.OpenCamera(_cameraId, _stateCallback, _backgroundThread.Handler);
+            await _asyncAutoResetEvent.WaitAsync(TimeSpan.FromSeconds(3));
         }
 
         public void Close()
@@ -66,7 +69,10 @@ namespace Camera.Droid
         private void OnOpened(object sender, CameraDevice device)
         {
             _cameraDevice = device;
+            Preview = new Preview(_cameraDevice, _manager, _backgroundThread.Handler);
             if (_stateCallback != null) _stateCallback.Opened -= OnOpened;
+            _asyncAutoResetEvent.Set();
+            _asyncAutoResetEvent = null;
         }
     }
 }

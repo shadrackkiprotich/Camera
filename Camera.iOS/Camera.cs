@@ -1,6 +1,5 @@
-using System;
 using System.Diagnostics;
-using System.IO;
+using System.Threading.Tasks;
 using AVFoundation;
 
 namespace Camera.iOS
@@ -17,9 +16,9 @@ namespace Camera.iOS
             InitializeSessionInput();
         }
 
-        public event EventHandler<Stream> PreviewFrameAvailable;
+        public IPreview Preview { get; private set; }
 
-        public void Open()
+        public async Task OpenAsync()
         {
             _session.StartRunning();
         }

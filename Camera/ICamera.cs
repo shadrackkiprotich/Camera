@@ -1,5 +1,4 @@
-using System;
-using System.IO;
+using System.Threading.Tasks;
 
 namespace Camera
 {
@@ -9,13 +8,16 @@ namespace Camera
     // ReSharper disable once InheritdocConsiderUsage
     public interface ICamera
     {
+        IPreview Preview { get; }
+
         /// <summary>
-        ///     Triggers when a frame is available for preview.
+        ///     Opens the camera.
         /// </summary>
-        event EventHandler<Stream> PreviewFrameAvailable;
+        Task OpenAsync();
 
-        void Open();
-
+        /// <summary>
+        ///     Closes the camera.
+        /// </summary>
         void Close();
     }
 }

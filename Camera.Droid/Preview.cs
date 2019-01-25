@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Android.Content;
@@ -123,33 +124,94 @@ namespace Camera.Droid
             FrameAvailable?.Invoke(this, rgb);
         }
 
-        private byte[] ToRgb(IReadOnlyList<byte> yValues, IReadOnlyList<byte> uValues,
-            IReadOnlyList<byte> vValues, int uvPixelStride, int uvRowStride)
+//        private byte[] ToRgb(IReadOnlyList<byte> yValues, IReadOnlyList<byte> uValues,
+//            IReadOnlyList<byte> vValues, int uvPixelStride, int uvRowStride)
+//        {
+//            var width = PixelSize.Width;
+//            var height = PixelSize.Height;
+//            var rgb = new byte[width * height * 4];
+//
+//            var partitions = Partitioner.Create(0, height);
+//            Parallel.ForEach(partitions, range =>
+//            {
+//                var (item1, item2) = range;
+//                Parallel.For(item1, item2, y =>
+//                {
+//                    for (var x = 0; x < width; x++)
+//                    {
+//                        var yIndex = x + width * y;
+//                        var currentPosition = yIndex * 4;
+//                        var uvIndex = uvPixelStride * (x / 2) + uvRowStride * (y / 2);
+//
+//                        var yy = yValues[yIndex];
+//                        var uu = uValues[uvIndex];
+//                        var vv = vValues[uvIndex];
+//
+//                        var rTmp = yy + vv * 1436 / 1024 - 179;
+//                        var gTmp = yy - uu * 46549 / 131072 + 44 - vv * 93604 / 131072 + 91;
+//                        var bTmp = yy + uu * 1814 / 1024 - 227;
+//
+//                        rgb[currentPosition++] = (byte) (rTmp < 0 ? 0 : rTmp > 255 ? 255 : rTmp);
+//                        rgb[currentPosition++] = (byte) (gTmp < 0 ? 0 : gTmp > 255 ? 255 : gTmp);
+//                        rgb[currentPosition++] = (byte) (bTmp < 0 ? 0 : bTmp > 255 ? 255 : bTmp);
+//                        rgb[currentPosition] = 255;
+//                    }
+//                });
+//            });
+//
+//            return rgb;
+//        }
+
+        private unsafe byte[] ToRgb(byte[] yValuesArr, byte[] uValuesArr,
+            byte[] vValuesArr, int uvPixelStride, int uvRowStride)
         {
             var width = PixelSize.Width;
             var height = PixelSize.Height;
             var rgb = new byte[width * height * 4];
 
-            Parallel.For(0, height, y =>
+            var partitions = Partitioner.Create(0, height);
+            Parallel.ForEach(partitions, range =>
             {
-                Parallel.For(0, height, x =>
+                var (item1, item2) = range;
+                Parallel.For(item1, item2, y =>
                 {
-                    var yIndex = x + width * y;
-                    var currentPosition = yIndex * 4;
-                    var uvIndex = uvPixelStride * (x / 2) + uvRowStride * (y / 2);
+                    for (var x = 0; x < width; x++)
+                    {
+                        var yIndex = x + width * y;
+                        var currentPosition = yIndex * 4;
+                        var uvIndex = uvPixelStride * (x / 2) + uvRowStride * (y / 2);
 
-                    var yy = yValues[yIndex];
-                    var uu = uValues[uvIndex];
-                    var vv = vValues[uvIndex];
+                        fixed (byte* rgbFixed = rgb)
+                        fixed (byte* yValuesFixed = yValuesArr)
+                        fixed (byte* uValuesFixed = uValuesArr)
+                        fixed (byte* vValuesFixed = vValuesArr)
+                        {
+                            var rgbPtr = rgbFixed;
+                            var yValues = yValuesFixed;
+                            var uValues = uValuesFixed;
+                            var vValues = vValuesFixed;
 
-                    var rTmp = yy + vv * 1436 / 1024 - 179;
-                    var gTmp = yy - uu * 46549 / 131072 + 44 - vv * 93604 / 131072 + 91;
-                    var bTmp = yy + uu * 1814 / 1024 - 227;
+                            var yy = *(yValues + yIndex);
+                            var uu = *(uValues + uvIndex);
+                            var vv = *(vValues + uvIndex);
 
-                    rgb[currentPosition++] = (byte) (rTmp < 0 ? 0 : rTmp > 255 ? 255 : rTmp);
-                    rgb[currentPosition++] = (byte) (gTmp < 0 ? 0 : gTmp > 255 ? 255 : gTmp);
-                    rgb[currentPosition++] = (byte) (bTmp < 0 ? 0 : bTmp > 255 ? 255 : bTmp);
-                    rgb[currentPosition] = 255;
+                            var rTmp = yy + vv * 1436 / 1024 - 179;
+                            var gTmp = yy - uu * 46549 / 131072 + 44 - vv * 93604 / 131072 + 91;
+                            var bTmp = yy + uu * 1814 / 1024 - 227;
+
+                            rgbPtr = rgbPtr + currentPosition;
+                            *rgbPtr = (byte) (rTmp < 0 ? 0 : rTmp > 255 ? 255 : rTmp);
+                            rgbPtr++;
+
+                            *rgbPtr = (byte) (gTmp < 0 ? 0 : gTmp > 255 ? 255 : gTmp);
+                            rgbPtr++;
+
+                            *rgbPtr = (byte) (bTmp < 0 ? 0 : bTmp > 255 ? 255 : bTmp);
+                            rgbPtr++;
+
+                            *rgbPtr = 255;
+                        }
+                    }
                 });
             });
 

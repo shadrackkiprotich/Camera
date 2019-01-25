@@ -1,21 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Threading.Tasks;
 using Camera;
 using Plugin.Permissions;
 using Plugin.Permissions.Abstractions;
 using SkiaSharp;
 using SkiaSharp.Views.Forms;
+using Xamarin.Forms;
+using Size = System.Drawing.Size;
 
 namespace Sample
 {
     public partial class MainPage
     {
         private readonly Queue<byte[]> _pendingFrames = new Queue<byte[]>();
+        private readonly Stopwatch _stopwatch = new Stopwatch();
+        private int _framesRendered;
+        private bool _isScaleMeasured;
         private byte[] _latestFrame;
         private Size _previewPixelSize;
+        private float _scale;
 
         public MainPage()
         {
@@ -52,7 +57,12 @@ namespace Sample
 
         private unsafe void CanvasViewOnPaintSurface(object sender, SKPaintGLSurfaceEventArgs e)
         {
-            if (_pendingFrames.Count > 0) _latestFrame = _pendingFrames.Dequeue();
+            var hasNewFrame = false;
+            if (_pendingFrames.Count > 0)
+            {
+                _latestFrame = _pendingFrames.Dequeue();
+                hasNewFrame = true;
+            }
 
             if (null == _latestFrame) return;
 
@@ -69,15 +79,35 @@ namespace Sample
                     var previewWidth = _previewPixelSize.Width;
                     var previewHeight = _previewPixelSize.Height;
 
-                    var widthDiff = Math.Abs(previewWidth - canvasWidth);
-                    var heightDiff = Math.Abs(previewHeight - canvasHeight);
+                    if (!_isScaleMeasured)
+                    {
+                        _scale = 1.0f;
 
-                    e.Surface.Canvas.Translate((float) widthDiff / 2, (float) heightDiff / 2);
-                    e.Surface.Canvas.Scale(new SKPoint(previewWidth, -previewHeight));
-                    e.Surface.Canvas.RotateDegrees(-90, (float) previewWidth / 2, (float) previewHeight / 2);
+                        if (canvasWidth > previewHeight) _scale = (float) canvasWidth / previewHeight;
+                        if (canvasHeight > previewWidth)
+                        {
+                            var scaleTemp = (float) canvasHeight / previewWidth;
+                            if (_scale > scaleTemp) _scale = scaleTemp;
+                        }
+
+                        _isScaleMeasured = true;
+                        _stopwatch.Start();
+                    }
+
+                    e.Surface.Canvas.Scale(_scale);
+                    e.Surface.Canvas.Scale(-1.0f, 1.0f, (float) previewHeight / 2, 0);
+                    e.Surface.Canvas.RotateDegrees(-90, 0, 0);
+                    e.Surface.Canvas.Translate(-previewWidth, 0);
                     e.Surface.Canvas.DrawImage(image, 0, 0);
                 }
             }
+
+            if (!hasNewFrame) return;
+            var seconds = _stopwatch.Elapsed.Seconds;
+            if (seconds == 0) return;
+
+            _framesRendered++;
+            Device.BeginInvokeOnMainThread(() => Fps.Text = (_framesRendered / seconds).ToString());
         }
 
         private static async Task RequestPermission(Permission permission)

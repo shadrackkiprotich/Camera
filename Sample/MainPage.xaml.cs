@@ -16,7 +16,8 @@ namespace Sample
     {
         private readonly Queue<byte[]> _pendingFrames = new Queue<byte[]>();
         private readonly Stopwatch _stopwatch = new Stopwatch();
-        private int _framesRendered;
+        private long _framesRendered;
+        private long _totalMillis;
         private bool _isScaleMeasured;
         private byte[] _latestFrame;
         private Size _previewPixelSize;
@@ -39,6 +40,9 @@ namespace Sample
                 camera.Preview.FrameAvailable += PreviewOnFrameAvailable;
                 camera.Preview.Start(new Xamarin.Forms.Size(CanvasView.Width, CanvasView.Height));
                 _previewPixelSize = camera.Preview.PixelSize;
+                Device.BeginInvokeOnMainThread(() =>
+                    Size.Text = _previewPixelSize.Width + "x" + _previewPixelSize.Height);
+                _stopwatch.Start();
             }
             catch (Exception e)
             {
@@ -91,23 +95,32 @@ namespace Sample
                         }
 
                         _isScaleMeasured = true;
-                        _stopwatch.Start();
                     }
 
-                    e.Surface.Canvas.Scale(_scale);
-                    e.Surface.Canvas.Scale(-1.0f, 1.0f, (float) previewHeight / 2, 0);
-                    e.Surface.Canvas.RotateDegrees(-90, 0, 0);
-                    e.Surface.Canvas.Translate(-previewWidth, 0);
-                    e.Surface.Canvas.DrawImage(image, 0, 0);
+                    var canvas = e.Surface.Canvas;
+
+                    canvas.Scale(_scale);
+                    canvas.Scale(-1.0f, 1.0f, (float) previewHeight / 2, 0);
+                    canvas.RotateDegrees(-90, 0, 0);
+                    canvas.Translate(-previewWidth, 0);
+                    canvas.DrawColor(SKColors.Black);
+                    canvas.DrawImage(image, 0, 0);
                 }
             }
 
             if (!hasNewFrame) return;
-            var seconds = _stopwatch.Elapsed.Seconds;
-            if (seconds == 0) return;
-
+            _totalMillis += _stopwatch.ElapsedMilliseconds;
             _framesRendered++;
-            Device.BeginInvokeOnMainThread(() => Fps.Text = (_framesRendered / seconds).ToString());
+
+            if (_totalMillis < 1000) return;
+
+            _stopwatch.Restart();
+            var fps = _framesRendered / (_totalMillis / 1000);
+            Device.BeginInvokeOnMainThread(() => Fps.Text = fps.ToString());
+
+            if (_totalMillis < 5000) return;
+            _framesRendered = fps;
+            _totalMillis = 1000;
         }
 
         private static async Task RequestPermission(Permission permission)

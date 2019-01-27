@@ -8,8 +8,29 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+        
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <skia:SKGLView x:Name="CanvasView" HasRenderLoop="True" Grid.Row="0" />
-        <Label x:Name="Fps" Grid.Row="1" />
+        <skia:SKGLView x:Name="CanvasView" 
+                       HasRenderLoop="True" 
+                       Grid.Row="0" 
+                       Grid.Column="0"
+                       Grid.RowSpan="2" 
+                       Grid.ColumnSpan="2" />
+        <Label x:Name="Fps" 
+               Grid.Row="1" 
+               Grid.Column="0"
+               HorizontalTextAlignment="Center" 
+               FontSize="Large" 
+               TextColor="White" />
+        <Label x:Name="Size"
+               Grid.Row="1" 
+               Grid.Column="1"
+               HorizontalTextAlignment="Center" 
+               FontSize="Large" 
+               TextColor="White" />
     </Grid>
 </ContentPage>

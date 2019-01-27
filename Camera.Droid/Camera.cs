@@ -35,6 +35,11 @@ namespace Camera.Droid
             await _asyncAutoResetEvent.WaitAsync(TimeSpan.FromSeconds(3));
         }
 
+        public byte[] TakePicture()
+        {
+            throw new NotImplementedException();
+        }
+
         public void Close()
         {
             try

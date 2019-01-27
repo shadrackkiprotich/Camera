@@ -23,6 +23,11 @@ namespace Camera.iOS
             _session.StartRunning();
         }
 
+        public byte[] TakePicture()
+        {
+            throw new System.NotImplementedException();
+        }
+
         public void Close()
         {
             _session.StopRunning();

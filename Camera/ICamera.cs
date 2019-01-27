@@ -15,6 +15,8 @@ namespace Camera
         /// </summary>
         Task OpenAsync();
 
+        byte[] TakePicture();
+
         /// <summary>
         ///     Closes the camera.
         /// </summary>

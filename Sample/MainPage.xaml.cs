@@ -22,6 +22,7 @@ namespace Sample
         private byte[] _latestFrame;
         private Size _previewPixelSize;
         private float _scale;
+        private ICamera _camera;
 
         public MainPage()
         {
@@ -35,11 +36,10 @@ namespace Sample
             try
             {
                 CanvasView.PaintSurface += CanvasViewOnPaintSurface;
-                var camera = CameraManager.Current.GetCamera(LogicalCameras.Front);
-                await camera.OpenAsync();
-                camera.Preview.FrameAvailable += PreviewOnFrameAvailable;
-                camera.Preview.Start(new Xamarin.Forms.Size(CanvasView.Width, CanvasView.Height));
-                _previewPixelSize = camera.Preview.PixelSize;
+                _camera = CameraManager.Current.GetCamera(LogicalCameras.Front);
+                var preview = await _camera.OpenWithPreviewAsync(new Xamarin.Forms.Size(CanvasView.Width, CanvasView.Height));
+                preview.FrameAvailable += PreviewOnFrameAvailable;
+                _previewPixelSize = preview.PixelSize;
                 Device.BeginInvokeOnMainThread(() =>
                     Size.Text = _previewPixelSize.Width + "x" + _previewPixelSize.Height);
                 _stopwatch.Start();
@@ -135,6 +135,11 @@ namespace Sample
             {
                 Debug.WriteLine(ex.ToString());
             }
+        }
+
+        private async void Button_OnClicked(object sender, EventArgs e)
+        {
+            Debug.WriteLine(await _camera.TakePictureAsync());
         }
     }
 }

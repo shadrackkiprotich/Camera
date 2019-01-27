@@ -5,12 +5,14 @@
              xmlns:skia="clr-namespace:SkiaSharp.Views.Forms;assembly=SkiaSharp.Views.Forms">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -18,19 +20,23 @@
                        HasRenderLoop="True" 
                        Grid.Row="0" 
                        Grid.Column="0"
-                       Grid.RowSpan="2" 
-                       Grid.ColumnSpan="2" />
+                       Grid.RowSpan="3" 
+                       Grid.ColumnSpan="3" />
+
         <Label x:Name="Fps" 
-               Grid.Row="1" 
+               Grid.Row="0" 
                Grid.Column="0"
                HorizontalTextAlignment="Center" 
-               FontSize="Large" 
+               FontSize="Small" 
                TextColor="White" />
+
         <Label x:Name="Size"
-               Grid.Row="1" 
-               Grid.Column="1"
+               Grid.Row="0" 
+               Grid.Column="2"
                HorizontalTextAlignment="Center" 
-               FontSize="Large" 
+               FontSize="Small" 
                TextColor="White" />
+
+        <Button Grid.Row="2" Grid.Column="1" Clicked="Button_OnClicked" Text="Capture" />
     </Grid>
 </ContentPage>

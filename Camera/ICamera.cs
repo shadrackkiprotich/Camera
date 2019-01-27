@@ -1,4 +1,6 @@
+using System;
 using System.Threading.Tasks;
+using Xamarin.Forms;
 
 namespace Camera
 {
@@ -6,16 +8,16 @@ namespace Camera
     ///     Can be a logical or a physical camera.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    public interface ICamera
+    public interface ICamera : IDisposable
     {
-        IPreview Preview { get; }
-
         /// <summary>
         ///     Opens the camera.
         /// </summary>
         Task OpenAsync();
 
-        byte[] TakePicture();
+        Task<ICameraPreview> OpenWithPreviewAsync(Size previewRequestSize);
+
+        Task<byte[]> TakePictureAsync();
 
         /// <summary>
         ///     Closes the camera.

@@ -6,7 +6,8 @@ namespace Camera
     /// <summary>
     ///     The camera preview.
     /// </summary>
-    public interface IPreview
+    // ReSharper disable once InheritdocConsiderUsage
+    public interface ICameraPreview : IDisposable
     {
         Size Size { get; }
 
@@ -16,15 +17,5 @@ namespace Camera
         ///     Triggers when a frame is available for preview.
         /// </summary>
         event EventHandler<byte[]> FrameAvailable;
-
-        /// <summary>
-        ///     Starts the camera preview.
-        /// </summary>
-        void Start(Size requestSize);
-
-        /// <summary>
-        ///     Stops the camera preview.
-        /// </summary>
-        void Stop();
     }
 }

@@ -1,27 +1,22 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Android.Content;
 using Android.Graphics;
 using Android.Hardware.Camera2;
 using Android.Hardware.Camera2.Params;
 using Android.Media;
 using Android.OS;
-using Android.Runtime;
 using Android.Views;
 using Com.Image.Yuv420888;
 using Java.Lang;
 using Java.Util;
 using Xamarin.Forms;
 using Application = Android.App.Application;
-using Boolean = Java.Lang.Boolean;
 using Debug = System.Diagnostics.Debug;
 using Image = Android.Media.Image;
 
 namespace Camera.Droid
 {
-    public class Preview : IPreview
+    public class CameraPreview : ICameraPreview
     {
         /// <summary>
         ///     Max preview width that is guaranteed by Camera2 API
@@ -34,20 +29,24 @@ namespace Camera.Droid
         private const int MaxPreviewHeight = 1080;
 
         private readonly Handler _backgroundHandler;
+        private readonly CameraCaptureListener _captureListener;
 
         private readonly CameraDevice _camera;
         private readonly Android.Hardware.Camera2.CameraManager _manager;
         private ImageAvailableListener _imageAvailableListener;
         private ImageReader _imageReader;
         private Yuv420888 _bufferFrame;
+        private bool _isDisposed;
+        private StateCallback _stateCallback;
 
-        private CaptureRequest.Builder _previewRequestBuilder;
-
-        public Preview(CameraDevice camera, Android.Hardware.Camera2.CameraManager manager, Handler backgroundHandler)
+        public CameraPreview(CameraDevice camera, Android.Hardware.Camera2.CameraManager manager,
+            Handler backgroundHandler,
+            CameraCaptureListener captureListener)
         {
             _camera = camera;
             _manager = manager;
             _backgroundHandler = backgroundHandler;
+            _captureListener = captureListener;
         }
 
         public Size Size { get; private set; }
@@ -56,7 +55,7 @@ namespace Camera.Droid
 
         public event EventHandler<byte[]> FrameAvailable;
 
-        public void Start(Size requestSize)
+        public Surface CreateSurface(Size requestSize, StateCallback stateCallback)
         {
             var bufferSize = GetBufferSize(ToPixels(requestSize));
             Size = DimensionUtils.ToXamarinFormsSize(bufferSize);
@@ -68,38 +67,13 @@ namespace Camera.Droid
             _imageAvailableListener.ImageAvailable += PreviewImageAvailable;
             _imageReader.SetOnImageAvailableListener(_imageAvailableListener, _backgroundHandler);
 
-            _previewRequestBuilder = _camera.CreateCaptureRequest(CameraTemplate.Preview);
-            _previewRequestBuilder.AddTarget(_imageReader.Surface);
-            _previewRequestBuilder.Set(CaptureRequest.ControlAfMode, (int) ControlAFMode.ContinuousPicture);
-
-            SetAutoFlash(_previewRequestBuilder);
-
-            var stateCallback = new PreviewStateCallback(_previewRequestBuilder.Build(), _backgroundHandler);
-            var surfaces = new List<Surface> {_imageReader.Surface};
-            _camera.CreateCaptureSession(surfaces, stateCallback, null);
+            return _imageReader.Surface;
         }
 
-        public void Stop()
+        private void Stop()
         {
             _imageAvailableListener.ImageAvailable -= PreviewImageAvailable;
             _imageReader.Close();
-        }
-
-        private void SetAutoFlash(CaptureRequest.Builder requestBuilder)
-        {
-            var flashSupported = GetFlashSupported();
-
-            if (flashSupported) requestBuilder.Set(CaptureRequest.ControlAeMode, (int) ControlAEMode.OnAutoFlash);
-        }
-
-        private bool GetFlashSupported()
-        {
-            var characteristics = _manager.GetCameraCharacteristics(_camera.Id);
-            // Check if the flash is supported.
-            var available = (Boolean) characteristics.Get(CameraCharacteristics.FlashInfoAvailable);
-            if (available == null) return false;
-
-            return (bool) available;
         }
 
         private void PreviewImageAvailable(object sender, Image e)
@@ -131,100 +105,6 @@ namespace Camera.Droid
 
             var rgb = _bufferFrame.ToRgba8888(yValues, uValues, vValues);
             FrameAvailable?.Invoke(this, rgb);
-        }
-
-//        private byte[] ToRgb(IReadOnlyList<byte> yValues, IReadOnlyList<byte> uValues,
-//            IReadOnlyList<byte> vValues, int uvPixelStride, int uvRowStride)
-//        {
-//            var width = PixelSize.Width;
-//            var height = PixelSize.Height;
-//            var rgb = new byte[width * height * 4];
-//
-//            var partitions = Partitioner.Create(0, height);
-//            Parallel.ForEach(partitions, range =>
-//            {
-//                var (item1, item2) = range;
-//                Parallel.For(item1, item2, y =>
-//                {
-//                    for (var x = 0; x < width; x++)
-//                    {
-//                        var yIndex = x + width * y;
-//                        var currentPosition = yIndex * 4;
-//                        var uvIndex = uvPixelStride * (x / 2) + uvRowStride * (y / 2);
-//
-//                        var yy = yValues[yIndex];
-//                        var uu = uValues[uvIndex];
-//                        var vv = vValues[uvIndex];
-//
-//                        var rTmp = yy + vv * 1436 / 1024 - 179;
-//                        var gTmp = yy - uu * 46549 / 131072 + 44 - vv * 93604 / 131072 + 91;
-//                        var bTmp = yy + uu * 1814 / 1024 - 227;
-//
-//                        rgb[currentPosition++] = (byte) (rTmp < 0 ? 0 : rTmp > 255 ? 255 : rTmp);
-//                        rgb[currentPosition++] = (byte) (gTmp < 0 ? 0 : gTmp > 255 ? 255 : gTmp);
-//                        rgb[currentPosition++] = (byte) (bTmp < 0 ? 0 : bTmp > 255 ? 255 : bTmp);
-//                        rgb[currentPosition] = 255;
-//                    }
-//                });
-//            });
-//
-//            return rgb;
-//        }
-
-        private unsafe byte[] ToRgb(byte[] yValuesArr, byte[] uValuesArr,
-            byte[] vValuesArr, int uvPixelStride, int uvRowStride)
-        {
-            var width = PixelSize.Width;
-            var height = PixelSize.Height;
-            var rgb = new byte[width * height * 4];
-
-            var partitions = Partitioner.Create(0, height);
-            Parallel.ForEach(partitions, range =>
-            {
-                var (item1, item2) = range;
-                Parallel.For(item1, item2, y =>
-                {
-                    for (var x = 0; x < width; x++)
-                    {
-                        var yIndex = x + width * y;
-                        var currentPosition = yIndex * 4;
-                        var uvIndex = uvPixelStride * (x / 2) + uvRowStride * (y / 2);
-
-                        fixed (byte* rgbFixed = rgb)
-                        fixed (byte* yValuesFixed = yValuesArr)
-                        fixed (byte* uValuesFixed = uValuesArr)
-                        fixed (byte* vValuesFixed = vValuesArr)
-                        {
-                            var rgbPtr = rgbFixed;
-                            var yValues = yValuesFixed;
-                            var uValues = uValuesFixed;
-                            var vValues = vValuesFixed;
-
-                            var yy = *(yValues + yIndex);
-                            var uu = *(uValues + uvIndex);
-                            var vv = *(vValues + uvIndex);
-
-                            var rTmp = yy + vv * 1436 / 1024 - 179;
-                            var gTmp = yy - uu * 46549 / 131072 + 44 - vv * 93604 / 131072 + 91;
-                            var bTmp = yy + uu * 1814 / 1024 - 227;
-
-                            rgbPtr = rgbPtr + currentPosition;
-                            *rgbPtr = (byte) (rTmp < 0 ? 0 : rTmp > 255 ? 255 : rTmp);
-                            rgbPtr++;
-
-                            *rgbPtr = (byte) (gTmp < 0 ? 0 : gTmp > 255 ? 255 : gTmp);
-                            rgbPtr++;
-
-                            *rgbPtr = (byte) (bTmp < 0 ? 0 : bTmp > 255 ? 255 : bTmp);
-                            rgbPtr++;
-
-                            *rgbPtr = 255;
-                        }
-                    }
-                });
-            });
-
-            return rgb;
         }
 
         private static Android.Util.Size ToPixels(Size dpSize)
@@ -268,7 +148,7 @@ namespace Camera.Droid
 
         private static bool IsSwappedDimensions(CameraCharacteristics characteristics)
         {
-            var displayRotation = CalculateRotation();
+            var displayRotation = Utils.CalculateRotation();
             //noinspection ConstantConditions
             var mSensorOrientation = (int) characteristics.Get(CameraCharacteristics.SensorOrientation);
             var swappedDimensions = false;
@@ -288,13 +168,6 @@ namespace Camera.Droid
             }
 
             return swappedDimensions;
-        }
-
-        private static SurfaceOrientation CalculateRotation()
-        {
-            var service = Application.Context.GetSystemService(Context.WindowService);
-            var display = service?.JavaCast<IWindowManager>()?.DefaultDisplay;
-            return display?.Rotation ?? 0;
         }
 
         private static Android.Util.Size GetMaxPreviewSize(bool swappedDimensions)
@@ -357,6 +230,20 @@ namespace Camera.Droid
             }
 
             return new SizeOptions(bigEnough, notBigEnough);
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed) return;
+            
+            Stop();
+
+            _backgroundHandler?.Dispose();
+            _captureListener?.Dispose();
+            _imageAvailableListener?.Dispose();
+            _imageReader?.Dispose();
+            _bufferFrame?.Dispose();
+            _isDisposed = true;
         }
     }
 }

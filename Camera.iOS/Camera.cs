@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Threading.Tasks;
 using AVFoundation;
+using Xamarin.Forms;
 
 namespace Camera.iOS
 {
@@ -16,14 +17,17 @@ namespace Camera.iOS
             InitializeSessionInput();
         }
 
-        public IPreview Preview { get; private set; }
-
         public async Task OpenAsync()
         {
             _session.StartRunning();
         }
 
-        public byte[] TakePicture()
+        public Task<ICameraPreview> OpenWithPreviewAsync(Size previewRequestSize)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public Task<byte[]> TakePictureAsync()
         {
             throw new System.NotImplementedException();
         }
@@ -38,6 +42,11 @@ namespace Camera.iOS
             var input = new AVCaptureDeviceInput(_camera, out var error);
             Debug.WriteLine(error);
             _session.AddInput(input);
+        }
+
+        public void Dispose()
+        {
+            throw new System.NotImplementedException();
         }
     }
 }

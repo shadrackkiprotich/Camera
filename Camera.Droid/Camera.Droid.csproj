@@ -273,14 +273,16 @@
     <Compile Include="CameraBackgroundThread.cs" />
     <Compile Include="CameraManager.cs" />
     <Compile Include="CameraStateCallback.cs" />
+    <Compile Include="CameraCaptureListener.cs" />
     <Compile Include="CompareSizesByArea.cs" />
-    <Compile Include="Preview.cs" />
+    <Compile Include="CameraPreview.cs" />
     <Compile Include="ImageAvailableListener.cs" />
-    <Compile Include="PreviewStateCallback.cs" />
+    <Compile Include="StateCallback.cs" />
     <Compile Include="Resources\Resource.Designer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="DimensionUtils.cs" />
     <Compile Include="SizeOptions.cs" />
+    <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

@@ -37,7 +37,6 @@ namespace Camera.Droid
         private ImageReader _imageReader;
         private Yuv420888 _bufferFrame;
         private bool _isDisposed;
-        private StateCallback _stateCallback;
 
         public CameraPreview(CameraDevice camera, Android.Hardware.Camera2.CameraManager manager,
             Handler backgroundHandler,

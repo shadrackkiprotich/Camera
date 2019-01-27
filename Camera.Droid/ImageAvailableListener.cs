@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using Android.Graphics;
 using Android.Media;
 using Object = Java.Lang.Object;
 

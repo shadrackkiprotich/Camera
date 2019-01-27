@@ -1,6 +1,7 @@
 ﻿using Android.App;
 using Android.Content.PM;
 using Android.OS;
+using Camera.Droid;
 using Plugin.CurrentActivity;
 using Plugin.Permissions;
 using Xamarin.Forms;
@@ -19,6 +20,7 @@ namespace Sample.Droid
 
             base.OnCreate(savedInstanceState);
             CrossCurrentActivity.Current.Init(this, savedInstanceState);
+            Bootstrapper.Init();
             Forms.Init(this, savedInstanceState);
             LoadApplication(new App());
         }

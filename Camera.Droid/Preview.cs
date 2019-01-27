@@ -10,6 +10,7 @@ using Android.Media;
 using Android.OS;
 using Android.Runtime;
 using Android.Views;
+using Com.Image.Yuv420888;
 using Java.Lang;
 using Java.Util;
 using Xamarin.Forms;
@@ -38,6 +39,7 @@ namespace Camera.Droid
         private readonly Android.Hardware.Camera2.CameraManager _manager;
         private ImageAvailableListener _imageAvailableListener;
         private ImageReader _imageReader;
+        private Yuv420888 _bufferFrame;
 
         private CaptureRequest.Builder _previewRequestBuilder;
 
@@ -118,9 +120,16 @@ namespace Camera.Droid
 
             var uvPixelStride = planes[1].PixelStride;
             var uvRowStride = planes[1].RowStride;
+            var yRowStride = planes[0].RowStride;
             e.Close();
 
-            var rgb = ToRgb(yValues, uValues, vValues, uvPixelStride, uvRowStride);
+            if (_bufferFrame == null)
+            {
+                _bufferFrame = new Yuv420888(Bootstrapper.Rs, PixelSize.Width, PixelSize.Height, yRowStride,
+                    uvPixelStride, uvRowStride);
+            }
+
+            var rgb = _bufferFrame.ToRgba8888(yValues, uValues, vValues);
             FrameAvailable?.Invoke(this, rgb);
         }
 

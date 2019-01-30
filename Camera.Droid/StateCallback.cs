@@ -1,7 +1,5 @@
 using System;
 using Android.Hardware.Camera2;
-using Android.OS;
-using Debug = System.Diagnostics.Debug;
 
 namespace Camera.Droid
 {

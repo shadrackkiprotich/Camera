@@ -267,7 +267,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AsyncAutoResetEvent.cs" />
     <Compile Include="Bootstrapper.cs" />
     <Compile Include="Camera.cs" />
     <Compile Include="CameraBackgroundThread.cs" />

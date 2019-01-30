@@ -29,13 +29,13 @@ namespace Camera.Droid
         private const int MaxPreviewHeight = 1080;
 
         private readonly Handler _backgroundHandler;
-        private readonly CameraCaptureListener _captureListener;
 
         private readonly CameraDevice _camera;
+        private readonly CameraCaptureListener _captureListener;
         private readonly Android.Hardware.Camera2.CameraManager _manager;
+        private Yuv420888 _bufferFrame;
         private ImageAvailableListener _imageAvailableListener;
         private ImageReader _imageReader;
-        private Yuv420888 _bufferFrame;
         private bool _isDisposed;
 
         public CameraPreview(CameraDevice camera, Android.Hardware.Camera2.CameraManager manager,
@@ -53,6 +53,20 @@ namespace Camera.Droid
         public System.Drawing.Size PixelSize { get; private set; }
 
         public event EventHandler<byte[]> FrameAvailable;
+
+        public void Dispose()
+        {
+            if (_isDisposed) return;
+
+            Stop();
+
+            _backgroundHandler?.Dispose();
+            _captureListener?.Dispose();
+            _imageAvailableListener?.Dispose();
+            _imageReader?.Dispose();
+            _bufferFrame?.Dispose();
+            _isDisposed = true;
+        }
 
         public Surface CreateSurface(Size requestSize, StateCallback stateCallback)
         {
@@ -97,10 +111,8 @@ namespace Camera.Droid
             e.Close();
 
             if (_bufferFrame == null)
-            {
                 _bufferFrame = new Yuv420888(Bootstrapper.Rs, PixelSize.Width, PixelSize.Height, yRowStride,
                     uvPixelStride, uvRowStride);
-            }
 
             var rgb = _bufferFrame.ToRgba8888(yValues, uValues, vValues);
             FrameAvailable?.Invoke(this, rgb);
@@ -229,20 +241,6 @@ namespace Camera.Droid
             }
 
             return new SizeOptions(bigEnough, notBigEnough);
-        }
-
-        public void Dispose()
-        {
-            if (_isDisposed) return;
-            
-            Stop();
-
-            _backgroundHandler?.Dispose();
-            _captureListener?.Dispose();
-            _imageAvailableListener?.Dispose();
-            _imageReader?.Dispose();
-            _bufferFrame?.Dispose();
-            _isDisposed = true;
         }
     }
 }

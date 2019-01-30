@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Camera.Droid
+namespace Camera
 {
     public class AsyncAutoResetEvent
     {

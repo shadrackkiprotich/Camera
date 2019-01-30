@@ -7,12 +7,14 @@ namespace Camera.Droid
     {
         public event EventHandler<CaptureResult> CaptureResultAvailable;
 
-        public override void OnCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result)
+        public override void OnCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
+            TotalCaptureResult result)
         {
             CaptureResultAvailable?.Invoke(this, result);
         }
 
-        public override void OnCaptureProgressed(CameraCaptureSession session, CaptureRequest request, CaptureResult partialResult)
+        public override void OnCaptureProgressed(CameraCaptureSession session, CaptureRequest request,
+            CaptureResult partialResult)
         {
             CaptureResultAvailable?.Invoke(this, partialResult);
         }

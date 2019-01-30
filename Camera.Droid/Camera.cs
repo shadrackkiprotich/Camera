@@ -6,37 +6,16 @@ using Android.Graphics;
 using Android.Hardware.Camera2;
 using Android.Hardware.Camera2.Params;
 using Android.Media;
+using Android.Util;
 using Android.Views;
 using Java.Lang;
 using Java.Util;
 using Java.Util.Concurrent;
-using Image = Android.Media.Image;
-using Size = Xamarin.Forms.Size;
 
 namespace Camera.Droid
 {
     public class Camera : ICamera
     {
-        private readonly CameraBackgroundThread _backgroundThread = new CameraBackgroundThread();
-        private readonly string _cameraId;
-        private readonly Semaphore _cameraOpenCloseLock = new Semaphore(1);
-        private readonly Android.Hardware.Camera2.CameraManager _manager;
-        private readonly CameraStateCallback _stateCallback = new CameraStateCallback();
-        private readonly CameraCaptureListener _captureListener = new CameraCaptureListener();
-
-        private AsyncAutoResetEvent _asyncAutoResetEvent;
-        private CameraDevice _cameraDevice;
-        private CameraPreview _cameraPreview;
-        private CaptureRequest.Builder _stillCaptureBuilder;
-        private CaptureRequest.Builder _previewRequestBuilder;
-        private ImageAvailableListener _imageAvailableListener;
-        private ImageReader _imageReader;
-        private bool _hasPreview;
-        private byte[] _latestImageCapture;
-        private Android.Util.Size _imageSize;
-        private CameraCaptureSession _captureSession;
-        private CaptureRequest _previewRequest;
-
         public enum CaptureState
         {
             Preview,
@@ -46,7 +25,25 @@ namespace Camera.Droid
             PictureTaken
         }
 
-        private CaptureState State { get; set; }
+        private readonly CameraBackgroundThread _backgroundThread = new CameraBackgroundThread();
+        private readonly string _cameraId;
+        private readonly Semaphore _cameraOpenCloseLock = new Semaphore(1);
+        private readonly CameraCaptureListener _captureListener = new CameraCaptureListener();
+        private readonly Android.Hardware.Camera2.CameraManager _manager;
+        private readonly CameraStateCallback _stateCallback = new CameraStateCallback();
+
+        private AsyncAutoResetEvent _asyncAutoResetEvent;
+        private CameraDevice _cameraDevice;
+        private CameraPreview _cameraPreview;
+        private CameraCaptureSession _captureSession;
+        private bool _hasPreview;
+        private ImageAvailableListener _imageAvailableListener;
+        private ImageReader _imageReader;
+        private Size _imageSize;
+        private byte[] _latestImageCapture;
+        private CaptureRequest _previewRequest;
+        private CaptureRequest.Builder _previewRequestBuilder;
+        private CaptureRequest.Builder _stillCaptureBuilder;
 
         public Camera(Android.Hardware.Camera2.CameraManager manager, string cameraId)
         {
@@ -56,12 +53,14 @@ namespace Camera.Droid
             _captureListener.CaptureResultAvailable += CaptureListenerOnCaptureResultAvailable;
         }
 
+        private CaptureState State { get; set; }
+
         public async Task OpenAsync()
         {
             await OpenAsync(false);
         }
 
-        public async Task<ICameraPreview> OpenWithPreviewAsync(Size previewRequestSize)
+        public async Task<ICameraPreview> OpenWithPreviewAsync(Xamarin.Forms.Size previewRequestSize)
         {
             await OpenAsync(true);
             var stateCallback = new StateCallback();
@@ -75,7 +74,7 @@ namespace Camera.Droid
             var characteristics = _manager.GetCameraCharacteristics(_cameraDevice.Id);
             var map = (StreamConfigurationMap) characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
             // ReSharper disable once CoVariantArrayConversion
-            _imageSize = (Android.Util.Size) Collections.Max(
+            _imageSize = (Size) Collections.Max(
                 Arrays.AsList(map.GetOutputSizes((int) ImageFormatType.Jpeg)),
                 new CompareSizesByArea());
 
@@ -84,9 +83,47 @@ namespace Camera.Droid
             _imageAvailableListener = new ImageAvailableListener();
             _imageAvailableListener.ImageAvailable += CaptureAvailable;
             _imageReader.SetOnImageAvailableListener(_imageAvailableListener, _backgroundThread.Handler);
-            var surfaces = new List<Surface> { previewSurface, _imageReader.Surface };
+            var surfaces = new List<Surface> {previewSurface, _imageReader.Surface};
             _cameraDevice.CreateCaptureSession(surfaces, stateCallback, null);
             return _cameraPreview;
+        }
+
+        public async Task<byte[]> TakePictureAsync()
+        {
+            var asyncAre = new AsyncAutoResetEvent(false);
+            LockFocus();
+            await asyncAre.WaitAsync(TimeSpan.FromSeconds(3));
+            return _latestImageCapture;
+        }
+
+        public void Close()
+        {
+            try
+            {
+                _cameraOpenCloseLock.Acquire();
+                _cameraDevice?.Close();
+                _backgroundThread.Stop();
+            }
+            catch (InterruptedException e)
+            {
+                throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
+            }
+            finally
+            {
+                _cameraOpenCloseLock.Release();
+            }
+        }
+
+        public void Dispose()
+        {
+            _cameraOpenCloseLock?.Dispose();
+            _cameraDevice?.Dispose();
+
+            _stateCallback.Opened -= OnOpened;
+            _stateCallback?.Dispose();
+
+            _captureListener.CaptureResultAvailable -= CaptureListenerOnCaptureResultAvailable;
+            _captureListener?.Dispose();
         }
 
         private static void SessionConfigureFailed(object sender, CameraCaptureSession e)
@@ -101,7 +138,7 @@ namespace Camera.Droid
             _captureSession = e;
 
             // Auto focus should be continuous for camera preview.
-            _previewRequestBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
+            _previewRequestBuilder.Set(CaptureRequest.ControlAfMode, (int) ControlAFMode.ContinuousPicture);
             // Flash is automatically enabled when necessary.
             Utils.SetAutoFlash(_previewRequestBuilder, _manager, _cameraId);
 
@@ -146,7 +183,7 @@ namespace Camera.Droid
                         // ControlAeState can be null on some devices
                         var aeState = (Integer) result.Get(CaptureResult.ControlAeState);
                         if (aeState == null ||
-                            aeState.IntValue() == ((int) ControlAEState.Converged))
+                            aeState.IntValue() == (int) ControlAEState.Converged)
                         {
                             State = CaptureState.PictureTaken;
                             CaptureStillPicture();
@@ -164,11 +201,9 @@ namespace Camera.Droid
                     // ControlAeState can be null on some devices
                     var aeState = (Integer) result.Get(CaptureResult.ControlAeState);
                     if (aeState == null ||
-                        aeState.IntValue() == ((int) ControlAEState.Precapture) ||
-                        aeState.IntValue() == ((int) ControlAEState.FlashRequired))
-                    {
+                        aeState.IntValue() == (int) ControlAEState.Precapture ||
+                        aeState.IntValue() == (int) ControlAEState.FlashRequired)
                         State = CaptureState.WaitingNonPrecapture;
-                    }
 
                     break;
                 }
@@ -176,7 +211,7 @@ namespace Camera.Droid
                 {
                     // ControlAeState can be null on some devices
                     var aeState = (Integer) result.Get(CaptureResult.ControlAeState);
-                    if (aeState == null || aeState.IntValue() != ((int) ControlAEState.Precapture))
+                    if (aeState == null || aeState.IntValue() != (int) ControlAEState.Precapture)
                     {
                         State = CaptureState.PictureTaken;
                         CaptureStillPicture();
@@ -250,14 +285,6 @@ namespace Camera.Droid
             UnlockFocus();
         }
 
-        public async Task<byte[]> TakePictureAsync()
-        {
-            var asyncAre = new AsyncAutoResetEvent(false);
-            LockFocus();
-            await asyncAre.WaitAsync(TimeSpan.FromSeconds(3));
-            return _latestImageCapture;
-        }
-
         // Lock the focus as the first step for a still image capture.
         private void LockFocus()
         {
@@ -275,7 +302,7 @@ namespace Camera.Droid
                 e.PrintStackTrace();
             }
         }
-        
+
         // Unlock the focus. This method should be called when still image capture sequence is
         // finished.
         private void UnlockFocus()
@@ -283,7 +310,7 @@ namespace Camera.Droid
             try
             {
                 // Reset the auto-focus trigger
-                _previewRequestBuilder.Set(CaptureRequest.ControlAfTrigger, (int)ControlAFTrigger.Cancel);
+                _previewRequestBuilder.Set(CaptureRequest.ControlAfTrigger, (int) ControlAFTrigger.Cancel);
                 Utils.SetAutoFlash(_previewRequestBuilder, _manager, _cameraId);
                 _captureSession.Capture(_previewRequestBuilder.Build(), _captureListener,
                     _backgroundThread.Handler);
@@ -295,24 +322,6 @@ namespace Camera.Droid
             catch (CameraAccessException e)
             {
                 e.PrintStackTrace();
-            }
-        }
-
-        public void Close()
-        {
-            try
-            {
-                _cameraOpenCloseLock.Acquire();
-                _cameraDevice?.Close();
-                _backgroundThread.Stop();
-            }
-            catch (InterruptedException e)
-            {
-                throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
-            }
-            finally
-            {
-                _cameraOpenCloseLock.Release();
             }
         }
 
@@ -333,25 +342,11 @@ namespace Camera.Droid
         {
             _cameraDevice = device;
             if (_hasPreview)
-            {
                 _cameraPreview =
                     new CameraPreview(_cameraDevice, _manager, _backgroundThread.Handler, _captureListener);
-            }
 
             _asyncAutoResetEvent.Set();
             _asyncAutoResetEvent = null;
-        }
-
-        public void Dispose()
-        {
-            _cameraOpenCloseLock?.Dispose();
-            _cameraDevice?.Dispose();
-
-            _stateCallback.Opened -= OnOpened;
-            _stateCallback?.Dispose();
-
-            _captureListener.CaptureResultAvailable -= CaptureListenerOnCaptureResultAvailable;
-            _captureListener?.Dispose();
         }
     }
 }

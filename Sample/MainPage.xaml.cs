@@ -16,13 +16,13 @@ namespace Sample
     {
         private readonly Queue<byte[]> _pendingFrames = new Queue<byte[]>();
         private readonly Stopwatch _stopwatch = new Stopwatch();
+        private ICamera _camera;
         private long _framesRendered;
-        private long _totalMillis;
         private bool _isScaleMeasured;
         private byte[] _latestFrame;
         private Size _previewPixelSize;
         private float _scale;
-        private ICamera _camera;
+        private long _totalMillis;
 
         public MainPage()
         {
@@ -37,7 +37,8 @@ namespace Sample
             {
                 CanvasView.PaintSurface += CanvasViewOnPaintSurface;
                 _camera = CameraManager.Current.GetCamera(LogicalCameras.Front);
-                var preview = await _camera.OpenWithPreviewAsync(new Xamarin.Forms.Size(CanvasView.Width, CanvasView.Height));
+                var preview =
+                    await _camera.OpenWithPreviewAsync(new Xamarin.Forms.Size(CanvasView.Width, CanvasView.Height));
                 preview.FrameAvailable += PreviewOnFrameAvailable;
                 _previewPixelSize = preview.PixelSize;
                 Device.BeginInvokeOnMainThread(() =>
@@ -87,10 +88,10 @@ namespace Sample
                     {
                         _scale = 1.0f;
 
-                        if (canvasWidth > previewHeight) _scale = (float) canvasWidth / previewHeight;
-                        if (canvasHeight > previewWidth)
+                        if (canvasWidth > previewWidth) _scale = (float) canvasWidth / previewWidth;
+                        if (canvasHeight > previewHeight)
                         {
-                            var scaleTemp = (float) canvasHeight / previewWidth;
+                            var scaleTemp = (float) canvasHeight / previewHeight;
                             if (_scale > scaleTemp) _scale = scaleTemp;
                         }
 
@@ -100,11 +101,20 @@ namespace Sample
                     var canvas = e.Surface.Canvas;
 
                     canvas.Scale(_scale);
-                    canvas.Scale(-1.0f, 1.0f, (float) previewHeight / 2, 0);
-                    canvas.RotateDegrees(-90, 0, 0);
-                    canvas.Translate(-previewWidth, 0);
+//                    canvas.Scale(-1.0f, 1.0f, (float) previewHeight / 2, 0);
+//                    canvas.RotateDegrees(-90, 0, 0);
+//                    canvas.Translate(-previewWidth, 0);
                     canvas.DrawColor(SKColors.Black);
-                    canvas.DrawImage(image, 0, 0);
+
+                    try
+                    {
+                        canvas.DrawImage(image, 0, 0);
+                    }
+                    catch (Exception exception)
+                    {
+                        Console.WriteLine(exception);
+                        throw;
+                    }
                 }
             }
 

@@ -9,8 +9,7 @@ namespace Camera.iOS
         public ICamera GetCamera(LogicalCameras camera)
         {
             var position = ToPosition(camera);
-            var device = AVCaptureDevice.GetDefaultDevice(
-                AVCaptureDeviceType.BuiltInWideAngleCamera, AVMediaType.Video, position);
+            var device = GetCameraForOrientation(position);
             return new Camera(device);
         }
 
@@ -25,6 +24,16 @@ namespace Camera.iOS
                 default:
                     throw new NotSupportedException("NotSupported");
             }
+        }
+
+        private static AVCaptureDevice GetCameraForOrientation(AVCaptureDevicePosition orientation)
+        {
+            var devices = AVCaptureDevice.DevicesWithMediaType(AVMediaType.Video);
+
+            foreach (var device in devices)
+                if (device.Position == orientation)
+                    return device;
+            return null;
         }
     }
 }

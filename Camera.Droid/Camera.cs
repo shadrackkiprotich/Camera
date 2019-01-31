@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Android.Content;
 using Android.Graphics;
 using Android.Hardware.Camera2;
 using Android.Hardware.Camera2.Params;
@@ -29,6 +30,7 @@ namespace Camera.Droid
         private readonly string _cameraId;
         private readonly Semaphore _cameraOpenCloseLock = new Semaphore(1);
         private readonly CameraCaptureListener _captureListener = new CameraCaptureListener();
+        private readonly Context _context;
         private readonly Android.Hardware.Camera2.CameraManager _manager;
         private readonly CameraStateCallback _stateCallback = new CameraStateCallback();
 
@@ -45,8 +47,9 @@ namespace Camera.Droid
         private CaptureRequest.Builder _previewRequestBuilder;
         private CaptureRequest.Builder _stillCaptureBuilder;
 
-        public Camera(Android.Hardware.Camera2.CameraManager manager, string cameraId)
+        public Camera(Context context, Android.Hardware.Camera2.CameraManager manager, string cameraId)
         {
+            _context = context;
             _manager = manager;
             _cameraId = cameraId;
             _stateCallback.Opened += OnOpened;
@@ -66,7 +69,7 @@ namespace Camera.Droid
             var stateCallback = new StateCallback();
             stateCallback.Configured += SessionConfigured;
             stateCallback.ConfigureFailed += SessionConfigureFailed;
-            var previewSurface = _cameraPreview.CreateSurface(previewRequestSize, stateCallback);
+            var previewSurface = _cameraPreview.CreateSurface(previewRequestSize);
 
             _previewRequestBuilder.AddTarget(previewSurface);
             _previewRequestBuilder.Set(CaptureRequest.ControlAfMode, (int) ControlAFMode.ContinuousPicture);
@@ -343,7 +346,7 @@ namespace Camera.Droid
             _cameraDevice = device;
             if (_hasPreview)
                 _cameraPreview =
-                    new CameraPreview(_cameraDevice, _manager, _backgroundThread.Handler, _captureListener);
+                    new CameraPreview(_context, _cameraDevice, _manager, _backgroundThread.Handler, _captureListener);
 
             _asyncAutoResetEvent.Set();
             _asyncAutoResetEvent = null;

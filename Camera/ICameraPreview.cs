@@ -13,6 +13,8 @@ namespace Camera
 
         System.Drawing.Size PixelSize { get; }
 
+        Transform Transform { get; }
+
         /// <summary>
         ///     Triggers when a frame is available for preview.
         /// </summary>

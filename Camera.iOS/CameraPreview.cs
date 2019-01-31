@@ -31,6 +31,8 @@ namespace Camera.iOS
         public Size Size { get; }
         public System.Drawing.Size PixelSize { get; }
 
+        public Transform Transform { get; } = new Transform();
+
         public event EventHandler<byte[]> FrameAvailable;
 
         public override void DidOutputSampleBuffer(AVCaptureOutput captureOutput, CMSampleBuffer sampleBuffer,

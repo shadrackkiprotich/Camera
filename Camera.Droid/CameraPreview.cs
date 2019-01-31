@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Android.Content;
 using Android.Graphics;
 using Android.Hardware.Camera2;
 using Android.Hardware.Camera2.Params;
@@ -13,6 +14,7 @@ using Xamarin.Forms;
 using Application = Android.App.Application;
 using Debug = System.Diagnostics.Debug;
 using Image = Android.Media.Image;
+using Math = System.Math;
 
 namespace Camera.Droid
 {
@@ -29,19 +31,22 @@ namespace Camera.Droid
         private const int MaxPreviewHeight = 1080;
 
         private readonly Handler _backgroundHandler;
-
         private readonly CameraDevice _camera;
         private readonly CameraCaptureListener _captureListener;
+
+        private readonly Context _context;
         private readonly Android.Hardware.Camera2.CameraManager _manager;
         private Yuv420888 _bufferFrame;
         private ImageAvailableListener _imageAvailableListener;
         private ImageReader _imageReader;
         private bool _isDisposed;
+        private int _rotation;
 
-        public CameraPreview(CameraDevice camera, Android.Hardware.Camera2.CameraManager manager,
+        public CameraPreview(Context context, CameraDevice camera, Android.Hardware.Camera2.CameraManager manager,
             Handler backgroundHandler,
             CameraCaptureListener captureListener)
         {
+            _context = context;
             _camera = camera;
             _manager = manager;
             _backgroundHandler = backgroundHandler;
@@ -51,6 +56,8 @@ namespace Camera.Droid
         public Size Size { get; private set; }
 
         public System.Drawing.Size PixelSize { get; private set; }
+
+        public Transform Transform { get; } = new Transform();
 
         public event EventHandler<byte[]> FrameAvailable;
 
@@ -68,19 +75,46 @@ namespace Camera.Droid
             _isDisposed = true;
         }
 
-        public Surface CreateSurface(Size requestSize, StateCallback stateCallback)
+        public Surface CreateSurface(Size requestSize)
         {
-            var bufferSize = GetBufferSize(ToPixels(requestSize));
+            var requestPixelSize = ToPixels(requestSize);
+            var bufferSize = GetBufferSize(requestPixelSize);
             Size = DimensionUtils.ToXamarinFormsSize(bufferSize);
             var pixelSize = new System.Drawing.Size {Width = bufferSize.Width, Height = bufferSize.Height};
             PixelSize = pixelSize;
-
+            ConfigureTransform(requestPixelSize.Width, requestPixelSize.Height);
             _imageReader = ImageReader.NewInstance(bufferSize.Width, bufferSize.Height, ImageFormatType.Yuv420888, 4);
             _imageAvailableListener = new ImageAvailableListener();
             _imageAvailableListener.ImageAvailable += PreviewImageAvailable;
             _imageReader.SetOnImageAvailableListener(_imageAvailableListener, _backgroundHandler);
-
             return _imageReader.Surface;
+        }
+
+        private void ConfigureTransform(int requestWidth, int requestHeight)
+        {
+            var viewRect = new RectF(0, 0, requestHeight, requestWidth);
+            var bufferRect = new RectF(0, 0, PixelSize.Height, PixelSize.Width);
+            var centerX = viewRect.CenterX();
+            var centerY = viewRect.CenterY();
+            if ((int) SurfaceOrientation.Rotation90 == _rotation || (int) SurfaceOrientation.Rotation270 == _rotation)
+            {
+                Transform.TranslateX = centerX - bufferRect.CenterX();
+                Transform.TranslateY = centerY - bufferRect.CenterY();
+                var scale = Math.Max((float) requestWidth / PixelSize.Height, (float) requestHeight / PixelSize.Width);
+                Transform.ScaleX = scale;
+                Transform.ScaleY = scale;
+                Transform.ScalePivotX = centerX;
+                Transform.ScalePivotY = centerY;
+                Transform.RotateDegrees = 90 * (_rotation - 2);
+                Transform.RotatePivotX = centerX;
+                Transform.RotatePivotY = centerY;
+            }
+            else if ((int) SurfaceOrientation.Rotation180 == _rotation)
+            {
+                Transform.RotateDegrees = 180;
+                Transform.RotatePivotX = centerX;
+                Transform.RotatePivotY = centerY;
+            }
         }
 
         private void Stop()
@@ -115,6 +149,7 @@ namespace Camera.Droid
                     uvPixelStride, uvRowStride);
 
             var rgb = _bufferFrame.ToRgba8888(yValues, uValues, vValues);
+
             FrameAvailable?.Invoke(this, rgb);
         }
 
@@ -157,11 +192,11 @@ namespace Camera.Droid
             return new Android.Util.Size(rotatedPreviewWidth, rotatedPreviewHeight);
         }
 
-        private static bool IsSwappedDimensions(CameraCharacteristics characteristics)
+        private bool IsSwappedDimensions(CameraCharacteristics characteristics)
         {
             var displayRotation = Utils.CalculateRotation();
             //noinspection ConstantConditions
-            var mSensorOrientation = (int) characteristics.Get(CameraCharacteristics.SensorOrientation);
+            var mSensorOrientation = _rotation = (int) characteristics.Get(CameraCharacteristics.SensorOrientation);
             var swappedDimensions = false;
             switch (displayRotation)
             {

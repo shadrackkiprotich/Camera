@@ -101,9 +101,9 @@ namespace Sample
                     var canvas = e.Surface.Canvas;
 
                     canvas.Scale(_scale);
-//                    canvas.Scale(-1.0f, 1.0f, (float) previewHeight / 2, 0);
-//                    canvas.RotateDegrees(-90, 0, 0);
-//                    canvas.Translate(-previewWidth, 0);
+                    canvas.Scale(-1.0f, 1.0f, (float) previewHeight / 2, 0);
+                    canvas.RotateDegrees(-90, 0, 0);
+                    canvas.Translate(-previewWidth, 0);
                     canvas.DrawColor(SKColors.Black);
 
                     try

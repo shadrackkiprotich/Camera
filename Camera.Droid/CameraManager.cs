@@ -24,7 +24,7 @@ namespace Camera.Droid
         {
             var manager = GetManager();
             var cameraId = GetCameraId(camera, manager);
-            return new Camera(manager, cameraId);
+            return new Camera(_context, manager, cameraId);
         }
 
         private static string GetCameraId(LogicalCameras camera, Android.Hardware.Camera2.CameraManager manager)
